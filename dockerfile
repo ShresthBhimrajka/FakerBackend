@@ -17,3 +17,5 @@ RUN apt-get update || true && apt-get upgrade -y &&\
 RUN pip install -r requirements.txt
 
 COPY . .
+
+CMD exec gunicorn --bind :5000 --workers 1 --threads 8 --timeout 0 app:app
