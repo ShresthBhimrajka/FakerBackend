@@ -3,6 +3,7 @@ from tensorflow.keras.models import load_model
 import os
 import time
 import mediapipe as mp
+import base64
 # import face_detection
 
 # modelFile = "save_dir_1\ee5e34e4fcf86a7c5174c32dd67569dd3e4dfe9f\MobileNetSSD_deploy.caffemodel"
@@ -119,40 +120,134 @@ face_detector = mp.solutions.face_detection.FaceDetection(model_selection = 1, m
     #    pass
 #     print("faces", faces, "\nfacePred",facePred)
 
-def predict(): # mediapipe
-    start = time.time()
-    faces = []
-    facePred = {}
-    try:
-      # {frame: [{id, x, y, w, h}, {...}, {...}, ...], ...}
-      # {id: 1/0, ...}
-      filename = 'bb5e30ee-3bb6-4c55-a8f3-c8233fc9bf71.jpeg'
-      img = cv2.imread(os.path.join('UPLOAD_FOLDER', filename))[:,:,::-1]
-      img_height, img_width, _ = img.shape
-      facesDet = face_detector.process(img)
-      i = 0
-      for face in facesDet.detections:
-            face_data = face.location_data.relative_bounding_box
-            x1 = int(face_data.xmin * img_width)
-            y1 = int(face_data.ymin * img_height)
-            width = int(face_data.width * img_width)
-            height = int(face_data.height * img_height)
-            x2 = int(x1 + width)
-            y2 = int(y1 + height)
-            crop_img = img[y1:y2, x1:x2]
-            resized_img = cv2.resize(crop_img, (256, 256)).reshape((1, 256, 256, 3))
-            pred = int(df_detector.predict(resized_img)[0][0])
-            id = filename + str(i)
-            newFace = {"id": id, "x": x1, "y": y1, "width": width, "height": height}
-            print(newFace)
-            faces.append(newFace)
-            facePred[id] = pred
-            i += 1
-    except Exception as e:
-       print(e)
-       pass
-    print("faces", faces, "\nfacePred",facePred)
-    end = time.time()
-    print((end - start) * 1000, "ms")
+# def predict(): # mediapipe
+#     start = time.time()
+#     faces = []
+#     facePred = {}
+#     try:
+#       # {frame: [{id, x, y, w, h}, {...}, {...}, ...], ...}
+#       # {id: 1/0, ...}
+#         filename = 'bb5e30ee-3bb6-4c55-a8f3-c8233fc9bf71.jpeg'
+#         img = cv2.imread(os.path.join('UPLOAD_FOLDER', filename))
+#         gray = img[:,:,::-1]
+#         img_height, img_width, _ = img.shape
+#         facesDet = face_detector.process(gray)
+#         i = 0
+#         for face in facesDet.detections:
+#             face_data = face.location_data.relative_bounding_box
+#             x1 = int(face_data.xmin * img_width)
+#             y1 = int(face_data.ymin * img_height)
+#             width = int(face_data.width * img_width)
+#             height = int(face_data.height * img_height)
+#             x2 = int(x1 + width)
+#             y2 = int(y1 + height)
+#             crop_img = img[y1:y2, x1:x2]
+#             resized_img = cv2.resize(crop_img, (256, 256)).reshape((1, 256, 256, 3))
+#             pred = int(df_detector.predict(resized_img)[0][0])
+#             id = filename + str(i)
+#             newFace = {"id": id, "x": x1, "y": y1, "width": width, "height": height}
+#             print(newFace)
+#             faces.append(newFace)
+#             facePred[id] = pred
+#             i += 1
+#         for face in faces:
+#             x1 = face["x"]
+#             y1 = face["y"]
+#             x2 = x1 + face["width"]
+#             y2 = y1 + face["height"]
+#             color = (0, 255, 0) if pred == 1 else (255, 0, 0)
+#             img = cv2.rectangle(img, (x1, y1), (x2, y2), color, 5)
+#         img = cv2.resize(img, (256, 256))
+#         retval, buffer = cv2.imencode(".png", img)
+#         b64_img = base64.b64encode(buffer)
+#     except Exception as e:
+#        print(e)
+#        pass
+#     print("faces", faces, "\nfacePred", facePred, "\nb64", b64_img)
+#     end = time.time()
+#     print((end - start) * 1000, "ms")
+
+def predict(): # mediapipe v2.0
+  # {frame: [{id, x, y, w, h}, {...}, {...}, ...], ...}
+  # {id: 1/0, ...}
+	prediction = 0
+	count = 0
+	faces = []
+	facePred = {}
+	b64_imgs = []
+    
+	try:
+		def process_img(img, frameId):
+			gray = img[:,:,::-1]
+			img_height, img_width, _ = img.shape
+			facesDet = face_detector.process(gray)
+			i = 0
+			temp = []
+			try:
+				for face in facesDet.detections:
+					face_data = face.location_data.relative_bounding_box
+					x1 = int(face_data.xmin * img_width)
+					y1 = int(face_data.ymin * img_height)
+					width = int(face_data.width * img_width)
+					height = int(face_data.height * img_height)
+					x2 = int(x1 + width)
+					y2 = int(y1 + height)
+					crop_img = img[y1:y2, x1:x2]
+					resized_img = cv2.resize(crop_img, (256, 256)).reshape((1, 256, 256, 3))
+					pred = int(df_detector.predict(resized_img)[0][0])
+					id = filename + str(frameId) +str(i)
+					newFace = {"id": id, "x": x1, "y": y1, "width": width, "height": height}
+					temp.append(newFace)
+					facePred[id] = pred
+					i += 1
+				for face in temp:
+					x1 = face["x"]
+					y1 = face["y"]
+					x2 = x1 + face["width"]
+					y2 = y1 + face["height"]
+					pred = facePred[face["id"]]
+					color = (0, 255, 0) if pred == 1 else (0, 0, 255)
+					cv2.rectangle(img, (x1, y1), (x2, y2), color, 5)
+					retval, buffer = cv2.imencode(".png", img)
+					faces.append(face)
+				b64_img = str(base64.b64encode(buffer)).split('\'')[1]
+				b64_imgs.append(b64_img)
+			except Exception as e:
+				print(e)
+				pass
+
+		filename = "e7232424-7014-4c01-bf92-15aa541ee2b8.mp4"
+		file_type = "video"
+
+		if(file_type == "image"):
+			img = cv2.imread(os.path.join('UPLOAD_FOLDER', filename))
+			process_img(img, 0)
+		else:
+			cap = cv2.VideoCapture(os.path.join('UPLOAD_FOLDER', filename))
+			last_frame_num = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+			frameRate = cap.get(5)
+			while cap.isOpened():
+				frameId = cap.get(1)
+				ret, frame = cap.read()
+				if frameId == last_frame_num:
+					break
+				if frameId % ((int(frameRate) + 1) * 1) == 0:
+					process_img(frame, frameId)
+			
+
+	except Exception as e:
+		print(e)
+		pass
+	
+	# os.remove(os.path.join('UPLOAD_FOLDER', filename))
+	count = len(faces)
+	for each in facePred:
+		prediction += facePred[each]
+	if(count > 0):
+		prediction = (prediction * 100.0) / (count * 1.0)
+	else:
+		prediction = ""
+	data = {"base64": b64_imgs, "pred": prediction}
+	print(prediction)
 
 predict()
